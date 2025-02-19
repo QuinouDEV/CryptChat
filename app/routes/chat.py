@@ -1,9 +1,8 @@
 from flask import Blueprint, render_template, request
 from flask_socketio import emit
 from flask_login import current_user, login_required
-from app.models import User, Message
+from app.models import User, Message, caesar_encrypt, caesar_decrypt
 from app import socketio, db
-from app.models import vigenere_encrypt, vigenere_decrypt
 
 chat_bp = Blueprint("chat", __name__, url_prefix="/chat")
 
@@ -18,7 +17,7 @@ def chat(receiver_id):
 
     decrypted_messages = []
     for msg in messages:
-        decrypted_msg = vigenere_decrypt(msg.content, current_user.username)
+        decrypted_msg = caesar_decrypt(msg.content, 3)  # Décalage fixé à 3
         decrypted_messages.append((msg.sender.username, decrypted_msg))
 
     return render_template("chat.html", receiver=receiver, messages=decrypted_messages)
@@ -29,7 +28,7 @@ def handle_message(data):
     message_text = data.get("message")
 
     if receiver_id and message_text:
-        encrypted_message = vigenere_encrypt(message_text, current_user.username) 
+        encrypted_message = caesar_encrypt(message_text, 3)  # Décalage fixé à 3
         
         message = Message(sender_id=current_user.id, receiver_id=receiver_id, content=encrypted_message)
         db.session.add(message)

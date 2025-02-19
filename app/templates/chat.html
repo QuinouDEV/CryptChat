@@ -24,19 +24,15 @@
     const receiverId = "{{ receiver.id }}";
     const currentUser = "{{ current_user.username }}";
 
-    function vigenereDecrypt(cipherText, key) {
+    function caesarDecrypt(cipherText, shift = 3) {
         const alphabet = 'abcdefghijklmnopqrstuvwxyz';
-        key = key.toLowerCase();
         let decryptedText = '';
-        let keyIndex = 0;
 
         for (let i = 0; i < cipherText.length; i++) {
             const char = cipherText[i];
 
             if (char.match(/[a-z]/i)) {
                 const isUpperCase = char === char.toUpperCase();
-                let shift = alphabet.indexOf(key[keyIndex % key.length]);
-
                 let charIndex = alphabet.indexOf(char.toLowerCase());
                 let newIndex = (charIndex - shift + 26) % 26;
                 let decryptedChar = alphabet[newIndex];
@@ -44,22 +40,17 @@
                 if (isUpperCase) {
                     decryptedChar = decryptedChar.toUpperCase();
                 }
-
                 decryptedText += decryptedChar;
-                keyIndex++;
             } else {
-                decryptedText += char; 
+                decryptedText += char;
             }
         }
-
         return decryptedText;
     }
 
     socket.on("message", (data) => {
         let chatBox = document.getElementById("chatBox");
-
-        let decryptedMessage = vigenereDecrypt(data.message, currentUser);
-
+        let decryptedMessage = caesarDecrypt(data.message, 3);
         chatBox.innerHTML += `<p><strong>${data.username}:</strong> ${decryptedMessage}</p>`;
         chatBox.scrollTop = chatBox.scrollHeight; 
     });
