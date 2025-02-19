@@ -1,0 +1,197 @@
+body {
+    background-color: #f4f7fc;
+    font-family: 'Poppins', sans-serif;
+}
+
+.container {
+    max-width: 800px;
+    margin-top: 20px;
+}
+
+.card {
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background: white;
+    padding: 20px;
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: scale(1.02);
+}
+
+.form-control {
+    border-radius: 8px;
+    padding: 10px;
+    border: 1px solid #ced4da;
+}
+
+.form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
+.form-label {
+    font-weight: 500;
+}
+
+.form-check-label {
+    font-size: 14px;
+}
+
+.btn {
+    border-radius: 8px;
+    transition: all 0.3s ease-in-out;
+    font-weight: 500;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn:hover {
+    opacity: 0.85;
+    transform: scale(1.03);
+}
+
+.alert {
+    border-radius: 8px;
+    padding: 12px;
+    font-weight: 500;
+    text-align: center;
+}
+
+.search-bar {
+    max-width: 400px;
+    margin: 20px auto;
+}
+
+.search-bar input {
+    border-radius: 20px;
+    padding: 10px;
+}
+
+.list-group-item {
+    border-radius: 8px;
+    margin-bottom: 8px;
+    transition: background 0.3s ease-in-out, transform 0.2s ease-in-out;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.list-group-item:hover {
+    background-color: #f1f1f1;
+    transform: scale(1.02);
+}
+
+.chat-box {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    height: 400px;
+    overflow-y: auto;
+}
+
+.chat-box p {
+    background: #e9ecef;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 5px;
+}
+
+.chat-box p strong {
+    color: #007bff;
+}
+
+.input-group input {
+    border-radius: 8px;
+    padding: 10px;
+    border: 1px solid #ced4da;
+}
+
+.input-group input:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
+.input-group .btn-success {
+    border-radius: 8px;
+}
+
+.btn-secondary {
+    border-radius: 8px;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card, .alert, .list-group-item, .chat-box {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.app-name {
+    font-size: 1.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: inline-block;
+    transition: transform 0.3s ease-in-out;
+}
+
+.app-name:hover {
+    transform: scale(1.1);
+}
+
+.app-name .crypt {
+    color: #000000;
+}
+
+.app-name .chat {
+    color: #ffffff;
+    background-color: #007bff;
+    padding: 2px 6px;
+    border-radius: 5px;
+}
+
+.app-name:hover .chat {
+    background-color: #ff5733;
+}
+
+.logo-container {
+    position: absolute;
+    top: -22%; /* Ajuste ce pourcentage selon tes besoins */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    opacity: 0.9;
+}
+
+.app-logo {
+    width: 120px; 
+    height: auto;
+    display: block;
+    z-index: 1001;
+}
+
+

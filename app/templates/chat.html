@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container">
+    <a href="{{ url_for('auth.user_list') }}" class="btn btn-secondary mb-3">Retour</a>
+    
+    <h2 class="text-center mt-4">Chat avec {{ receiver.username }}</h2>
+
+    <div class="chat-box" id="chatBox">
+        {% for msg in messages %}
+            <p><strong>{{ msg.sender.username }}:</strong> {{ msg.content }}</p>
+        {% endfor %}
+    </div>
+
+    <div class="input-group mt-3">
+        <input type="text" id="messageInput" class="form-control" placeholder="Écrire un message..." onkeypress="handleKeyPress(event)">
+        <button class="btn btn-success" onclick="sendMessage()">Envoyer</button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
+<script>
+    const socket = io();
+    const receiverId = "{{ receiver.id }}";
+
+    socket.on("message", (data) => {
+        let chatBox = document.getElementById("chatBox");
+        chatBox.innerHTML += `<p><strong>${data.username}:</strong> ${data.message}</p>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    function sendMessage() {
+        let messageInput = document.getElementById("messageInput");
+        let message = messageInput.value.trim();
+        if (message !== "") {
+            socket.emit("message", { message: message, receiver_id: receiverId });
+            messageInput.value = "";
+        }
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+    }
+
+    function goBack() {
+        window.history.back();
+    }
+</script>
+
+{% endblock %}

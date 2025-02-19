@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container">
+    <h2 class="text-center mt-4">Liste des utilisateurs</h2>
+
+    <form action="{{ url_for('auth.user_list') }}" method="GET" class="search-bar d-flex">
+        <input type="text" name="q" class="form-control me-2" placeholder="Rechercher un utilisateur..." value="{{ query or '' }}">
+        <button type="submit" class="btn btn-primary">Rechercher</button>
+    </form>
+
+    {% if users %}
+        <div class="card mt-4 p-3">
+            <ul class="list-group">
+                {% for user in users %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ user.username }}
+                        <a href="{{ url_for('chat.chat', receiver_id=user.uuid) }}" class="btn btn-success">Chat</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% else %}
+        <p class="text-center text-muted mt-4">Aucun utilisateur trouvé.</p>
+    {% endif %}
+</div>
+
+
+{% endblock %}
