@@ -22,13 +22,13 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     csrf.init_app(app)
     login_manager.init_app(app)
-    socketio.init_app(app)  # Intégration de WebSocket
+    socketio.init_app(app) 
 
 
 
     from app.routes.auth import auth_bp
     from app.routes.main import main_bp 
-    from app.routes.chat import chat_bp  # Ajout du chat
+    from app.routes.chat import chat_bp 
 
 
     app.register_blueprint(auth_bp)
