@@ -3,7 +3,8 @@
 
 <div class="container">
     <a href="{{ url_for('auth.user_list') }}" class="btn btn-secondary mb-3">Retour</a>
-    
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     <h2 class="text-center mt-4">Chat avec {{ receiver.username }}</h2>
 
     <div class="chat-box" id="chatBox">
@@ -21,12 +22,36 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
 <script>
     const socket = io();
-    const receiverId = "{{ receiver.id }}";
+    const receiverId = "{{ receiver.uuid }}";
     const currentUser = "{{ current_user.username }}";
 
-    function caesarDecrypt(cipherText, shift = 3) {
-        const alphabet = 'abcdefghijklmnopqrstuvwxyz';
-        let decryptedText = '';
+    let sharedKey = 3;  
+
+    function fetchSharedKey(receiverId) {
+        const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
+
+        fetch(`/chat/exchange_key/${receiverId}`, { 
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken 
+            },
+            credentials: "same-origin" 
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Server response:", data);
+            if (data.public_key) {
+                sharedKey = data.public_key % 26;
+            }
+        })
+        .catch(error => console.error("Erreur lors de l'échange de clé:", error));
+    }
+
+
+    function caesarDecrypt(cipherText, shift) {
+        const alphabet = "abcdefghijklmnopqrstuvwxyz";
+        let decryptedText = "";
 
         for (let i = 0; i < cipherText.length; i++) {
             const char = cipherText[i];
@@ -48,19 +73,24 @@
         return decryptedText;
     }
 
+    fetchSharedKey("{{ receiver.uuid }}");
+
     socket.on("message", (data) => {
-        let chatBox = document.getElementById("chatBox");
-        let decryptedMessage = caesarDecrypt(data.message, 3);
-        chatBox.innerHTML += `<p><strong>${data.username}:</strong> ${decryptedMessage}</p>`;
-        chatBox.scrollTop = chatBox.scrollHeight; 
-    });
+    console.log("Received message:", data);  // Debug
+    let chatBox = document.getElementById("chatBox");
+    let decryptedMessage = caesarDecrypt(data.message, sharedKey);
+    chatBox.innerHTML += `<p><strong>${data.username}:</strong> ${decryptedMessage}</p>`;
+    chatBox.scrollTop = chatBox.scrollHeight;
+});
+
 
     function sendMessage() {
         let messageInput = document.getElementById("messageInput");
         let message = messageInput.value.trim();
         if (message !== "") {
-            socket.emit("message", { message: message, receiver_id: receiverId });
-            messageInput.value = ""; 
+            console.log("Sending message:", message);
+            socket.emit("message", { message: message, receiver_id: "{{ receiver.id }}" });
+            messageInput.value = "";
         }
     }
 

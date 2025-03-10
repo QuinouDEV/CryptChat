@@ -8,6 +8,7 @@ import string
 
 SECRET_KEY = Config.ENCRYPTION_KEY.encode()
 
+
 def caesar_encrypt(plain_text, shift=3):
     alphabet = string.ascii_lowercase
     encrypted_text = []
@@ -40,6 +41,19 @@ class User(db.Model, UserMixin):
 
     def check_password(self, password):
         return check_password_hash(self.password, password)
+
+
+class ChatSession(db.Model):
+    __tablename__ = 'chat_sessions'
+    id = db.Column(db.Integer, primary_key=True)
+    user1_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user2_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    shared_key = db.Column(db.String(256), nullable=False)
+    key_generated_at = db.Column(db.DateTime, default=datetime.utcnow)  # Timestamp clé
+
+
+    user1 = db.relationship("User", foreign_keys=[user1_id])
+    user2 = db.relationship("User", foreign_keys=[user2_id])
 
 
 class Message(db.Model):
