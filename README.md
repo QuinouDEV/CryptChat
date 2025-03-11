@@ -1,4 +1,4 @@
-```markdown
+markdown
 # CryptChat
 
 Bienvenue sur **CryptChat**, une application de messagerie sécurisée intégrant plusieurs méthodes de chiffrement pour garantir la confidentialité des échanges.
@@ -84,4 +84,3 @@ SESSION_LIFETIME=30
 ---
 
 ## Bon chat crypté ! 🔐
-```
