@@ -1,0 +1,12 @@
+Flask==2.3.3
+Flask-Login==0.6.3
+Flask-SocketIO==5.3.6
+python-socketio==5.8.0
+python-engineio==4.8.0
+cryptography==41.0.4
+PyMySQL==1.1.0
+SQLAlchemy==2.0.22
+email-validator==2.0.0.post2  # au cas où tu l'utilises dans tes forms Flask-WTF
+Flask-WTF==1.1.1
+WTForms==3.0.1
+eventlet==0.33.3  # utile pour WebSocket avec Flask-SocketIO
