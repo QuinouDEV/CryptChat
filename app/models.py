@@ -5,27 +5,33 @@ from app import db
 from config import Config
 import uuid
 import string
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+import hashlib
+import os
 
 SECRET_KEY = Config.ENCRYPTION_KEY.encode()
 
+def aes_encrypt(plain_text, shared_key):
+    key = bytes.fromhex(shared_key)
+    cipher = AES.new(key, AES.MODE_CBC)
+    ct_bytes = cipher.encrypt(pad(plain_text.encode(), AES.block_size))
+    iv = cipher.iv
+    return (iv + ct_bytes).hex()
 
-def caesar_encrypt(plain_text, shift=3):
-    alphabet = string.ascii_lowercase
-    encrypted_text = []
-
-    for char in plain_text:
-        if char.isalpha():
-            is_upper = char.isupper()
-            new_char = alphabet[(alphabet.index(char.lower()) + shift) % 26]
-            encrypted_text.append(new_char.upper() if is_upper else new_char)
-        else:
-            encrypted_text.append(char)
-
-    return ''.join(encrypted_text)
-
-def caesar_decrypt(cipher_text, shift=3):
-    return caesar_encrypt(cipher_text, -shift)
-
+def aes_decrypt(cipher_text_hex, shared_key_hex):
+    cipher_text = bytes.fromhex(cipher_text_hex)
+    iv = cipher_text[:16]
+    ct = cipher_text[16:]
+    key = bytes.fromhex(shared_key_hex)
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    decrypted_data = cipher.decrypt(ct)
+    try:
+        plain_text = unpad(decrypted_data, AES.block_size).decode()
+    except Exception as e:
+        print(f"Erreur d'unpadding : {e}")
+        return "[Message corrompu]"
+    return plain_text
 
 class User(db.Model, UserMixin):
     __tablename__ = 'users'
@@ -42,19 +48,17 @@ class User(db.Model, UserMixin):
     def check_password(self, password):
         return check_password_hash(self.password, password)
 
-
 class ChatSession(db.Model):
     __tablename__ = 'chat_sessions'
+
     id = db.Column(db.Integer, primary_key=True)
     user1_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     user2_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     shared_key = db.Column(db.String(256), nullable=False)
-    key_generated_at = db.Column(db.DateTime, default=datetime.utcnow)  # Timestamp clé
-
+    key_generated_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user1 = db.relationship("User", foreign_keys=[user1_id])
     user2 = db.relationship("User", foreign_keys=[user2_id])
-
 
 class Message(db.Model):
     __tablename__ = 'messages'
@@ -67,9 +71,3 @@ class Message(db.Model):
 
     sender = db.relationship("User", foreign_keys=[sender_id])
     receiver = db.relationship("User", foreign_keys=[receiver_id])
-
-    def encrypt_content(self, shift=3):
-        self.content = caesar_encrypt(self.content, shift)
-
-    def decrypt_content(self, shift=3):
-        return caesar_decrypt(self.content, shift)

@@ -23,73 +23,123 @@
 <script>
     const socket = io();
     const receiverId = "{{ receiver.uuid }}";
-    const currentUser = "{{ current_user.username }}";
+    let sharedKeyHex = null;
+    const currentUsername = "{{ current_user.username }}";
 
-    let sharedKey = 3;  
 
-    function fetchSharedKey(receiverId) {
-        const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
-
-        fetch(`/chat/exchange_key/${receiverId}`, { 
+    async function fetchSharedKey(receiverId) {
+        const response = await fetch(`/chat/exchange_key/${receiverId}`, {
             method: "POST",
-            headers: { 
+            headers: {
                 "Content-Type": "application/json",
-                "X-CSRFToken": csrfToken 
-            },
-            credentials: "same-origin" 
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log("Server response:", data);
-            if (data.public_key) {
-                sharedKey = data.public_key % 26;
+                "X-CSRFToken": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             }
-        })
-        .catch(error => console.error("Erreur lors de l'échange de clé:", error));
-    }
-
-
-    function caesarDecrypt(cipherText, shift) {
-        const alphabet = "abcdefghijklmnopqrstuvwxyz";
-        let decryptedText = "";
-
-        for (let i = 0; i < cipherText.length; i++) {
-            const char = cipherText[i];
-
-            if (char.match(/[a-z]/i)) {
-                const isUpperCase = char === char.toUpperCase();
-                let charIndex = alphabet.indexOf(char.toLowerCase());
-                let newIndex = (charIndex - shift + 26) % 26;
-                let decryptedChar = alphabet[newIndex];
-
-                if (isUpperCase) {
-                    decryptedChar = decryptedChar.toUpperCase();
-                }
-                decryptedText += decryptedChar;
-            } else {
-                decryptedText += char;
-            }
+        });
+        const data = await response.json();
+        if (data.public_key) {
+            sharedKeyHex = data.public_key;
         }
-        return decryptedText;
     }
 
-    fetchSharedKey("{{ receiver.uuid }}");
+    (async () => {
+        await fetchSharedKey("{{ receiver.uuid }}");
+        initSocketListeners();
+    })();
 
-    socket.on("message", (data) => {
-    console.log("Received message:", data);  // Debug
-    let chatBox = document.getElementById("chatBox");
-    let decryptedMessage = caesarDecrypt(data.message, sharedKey);
-    chatBox.innerHTML += `<p><strong>${data.username}:</strong> ${decryptedMessage}</p>`;
-    chatBox.scrollTop = chatBox.scrollHeight;
-});
+    function hexToBytes(hex) {
+        let bytes = new Uint8Array(hex.length / 2);
+        for (let i = 0; i < hex.length; i += 2) {
+            bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+        }
+        return bytes;
+    }
 
+    async function decryptMessage(encryptedHex, sharedKeyHex) {
+        if (!sharedKeyHex) return "[Clé non disponible]";
+        
+        const keyBuffer = hexToBytes(sharedKeyHex);
+        const key = await crypto.subtle.importKey(
+            "raw",
+            keyBuffer,
+            { name: "AES-CBC" },
+            false,
+            ["decrypt"]
+        );
 
-    function sendMessage() {
+        let encryptedBytes = hexToBytes(encryptedHex);
+        let iv = encryptedBytes.slice(0, 16);
+        let encryptedData = encryptedBytes.slice(16);
+
+        try {
+            let decryptedBuffer = await crypto.subtle.decrypt(
+                { name: "AES-CBC", iv: iv },
+                key,
+                encryptedData
+            );
+            return new TextDecoder().decode(decryptedBuffer);
+        } catch (e) {
+            return "[Message illisible]";
+        }
+    }
+
+    function initSocketListeners() {
+        socket.on("message", async (data) => {
+            let chatBox = document.getElementById("chatBox");
+
+            if (!sharedKeyHex) {
+                chatBox.innerHTML += `<p><strong>${data.username}:</strong> [Clé non disponible]</p>`;
+                return;
+            }
+
+            let decryptedMessage = await decryptMessage(data.message, sharedKeyHex);
+            chatBox.innerHTML += `<p><strong>${data.username}:</strong> ${decryptedMessage}</p>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        });
+    }
+
+    async function encryptMessage(plainText, sharedKeyHex) {
+        const keyBuffer = hexToBytes(sharedKeyHex);
+
+        const key = await crypto.subtle.importKey(
+            "raw",
+            keyBuffer,
+            { name: "AES-CBC" },
+            false,
+            ["encrypt"]
+        );
+
+        const iv = crypto.getRandomValues(new Uint8Array(16));
+        const encodedText = new TextEncoder().encode(plainText);
+
+        const encryptedBuffer = await crypto.subtle.encrypt(
+            { name: "AES-CBC", iv: iv },
+            key,
+            encodedText
+        );
+
+        const combined = new Uint8Array(iv.byteLength + encryptedBuffer.byteLength);
+        combined.set(iv, 0);
+        combined.set(new Uint8Array(encryptedBuffer), iv.byteLength);
+
+        return Array.from(combined).map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    async function sendMessage() {
         let messageInput = document.getElementById("messageInput");
         let message = messageInput.value.trim();
+
         if (message !== "") {
-            console.log("Sending message:", message);
-            socket.emit("message", { message: message, receiver_id: "{{ receiver.id }}" });
+            let chatBox = document.getElementById("chatBox");
+            chatBox.innerHTML += `<p><strong>${currentUsername}:</strong> ${message}</p>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            const encryptedMessageHex = await encryptMessage(message, sharedKeyHex);
+
+            socket.emit("message", {
+                message: encryptedMessageHex,
+                receiver_id: "{{ receiver.id }}"
+            });
+
             messageInput.value = "";
         }
     }
