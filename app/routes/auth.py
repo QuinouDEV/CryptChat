@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from app.models import User
-import uuid  
+import uuid
 from app.forms import LoginForm, RegisterForm
 from app import db
 
@@ -49,18 +49,16 @@ def register():
         else:
             new_user = User(
                 username=form.username.data,
-                uuid=str(uuid.uuid4())  # Génération et stockage d'un UUID unique
+                uuid=str(uuid.uuid4())
             )
             new_user.set_password(form.password.data)
+            new_user.generate_keys()
             db.session.add(new_user)
             db.session.commit()
             flash("Inscription réussie. Vous pouvez maintenant vous connecter.", "success")
             return redirect(url_for("auth.login"))
 
     return render_template("register.html", form=form)
-
-
-
 
 @auth_bp.route("/logout")
 @login_required

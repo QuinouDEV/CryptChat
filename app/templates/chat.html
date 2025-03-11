@@ -3,11 +3,10 @@
 
 <div class="container">
     <a href="{{ url_for('auth.user_list') }}" class="btn btn-secondary mb-3">Retour</a>
-    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <h2 class="text-center mt-4">Chat avec {{ receiver.username }}</h2>
 
-    <div class="chat-box" id="chatBox">
+    <div class="chat-box" id="chatBox" style="height: 400px; overflow-y: scroll;">
         {% for username, msg in messages %}
             <p><strong>{{ username }}:</strong> {{ msg }}</p>
         {% endfor %}
@@ -21,123 +20,116 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
 <script>
+    let senderPublicKeys = {};  // stockage des clés publiques
     const socket = io();
-    const receiverId = "{{ receiver.uuid }}";
-    let sharedKeyHex = null;
-    const currentUsername = "{{ current_user.username }}";
+    const receiverId = "{{ receiver.id }}";
+    const currentUserId = "{{ current_user.id }}";
 
 
-    async function fetchSharedKey(receiverId) {
-        const response = await fetch(`/chat/exchange_key/${receiverId}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRFToken": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            }
-        });
+    async function loadPublicKey(userUUID) {
+        if (senderPublicKeys[userUUID]) {
+            return senderPublicKeys[userUUID]; 
+        }
+
+        const response = await fetch(`/chat/get_public_key/${userUUID}`);
         const data = await response.json();
-        if (data.public_key) {
-            sharedKeyHex = data.public_key;
-        }
-    }
 
-    (async () => {
-        await fetchSharedKey("{{ receiver.uuid }}");
-        initSocketListeners();
-    })();
-
-    function hexToBytes(hex) {
-        let bytes = new Uint8Array(hex.length / 2);
-        for (let i = 0; i < hex.length; i += 2) {
-            bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-        }
-        return bytes;
-    }
-
-    async function decryptMessage(encryptedHex, sharedKeyHex) {
-        if (!sharedKeyHex) return "[Clé non disponible]";
+        const pem = data.public_key;
+        const key = await importRSAPublicKey(pem);
         
-        const keyBuffer = hexToBytes(sharedKeyHex);
-        const key = await crypto.subtle.importKey(
-            "raw",
-            keyBuffer,
-            { name: "AES-CBC" },
-            false,
-            ["decrypt"]
+        senderPublicKeys[userUUID] = key;
+        return key;
+    }
+
+    async function importRSAPublicKey(pem) {
+
+    const b64 = pem
+        .replace('-----BEGIN PUBLIC KEY-----', '')
+        .replace('-----END PUBLIC KEY-----', '')
+        .replace(/\n/g, '');
+
+    const binaryDerString = atob(b64);
+    const binaryDer = str2ab(binaryDerString);
+
+    return crypto.subtle.importKey(
+        "spki",
+            binaryDer,
+            {
+                name: "RSA-PSS",
+                hash: "SHA-256"
+            },
+            true,
+            ["verify"]
         );
+    }
 
-        let encryptedBytes = hexToBytes(encryptedHex);
-        let iv = encryptedBytes.slice(0, 16);
-        let encryptedData = encryptedBytes.slice(16);
-
-        try {
-            let decryptedBuffer = await crypto.subtle.decrypt(
-                { name: "AES-CBC", iv: iv },
-                key,
-                encryptedData
-            );
-            return new TextDecoder().decode(decryptedBuffer);
-        } catch (e) {
-            return "[Message illisible]";
+    function str2ab(str) {
+        const buf = new ArrayBuffer(str.length);
+        const bufView = new Uint8Array(buf);
+        for (let i = 0; i < str.length; i++) {
+            bufView[i] = str.charCodeAt(i);
         }
+        return buf;
     }
 
-    function initSocketListeners() {
-        socket.on("message", async (data) => {
-            let chatBox = document.getElementById("chatBox");
+    async function verifySignature(message, signatureBase64, userUUID) {
+    const publicKey = await loadPublicKey(userUUID);
 
-            if (!sharedKeyHex) {
-                chatBox.innerHTML += `<p><strong>${data.username}:</strong> [Clé non disponible]</p>`;
-                return;
-            }
-
-            let decryptedMessage = await decryptMessage(data.message, sharedKeyHex);
-            chatBox.innerHTML += `<p><strong>${data.username}:</strong> ${decryptedMessage}</p>`;
-            chatBox.scrollTop = chatBox.scrollHeight;
-        });
+    const encoder = new TextEncoder();
+    const data = encoder.encode(message);
+    
+    function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
     }
 
-    async function encryptMessage(plainText, sharedKeyHex) {
-        const keyBuffer = hexToBytes(sharedKeyHex);
+    const signature = base64ToArrayBuffer(signatureBase64);
 
-        const key = await crypto.subtle.importKey(
-            "raw",
-            keyBuffer,
-            { name: "AES-CBC" },
-            false,
-            ["encrypt"]
-        );
+    const isValid = await crypto.subtle.verify(
+        {
+            name: "RSA-PSS",
+            saltLength: 32  
+        },
+        publicKey,
+        signature,
+        data
+    );
 
-        const iv = crypto.getRandomValues(new Uint8Array(16));
-        const encodedText = new TextEncoder().encode(plainText);
+    return isValid;
+}
 
-        const encryptedBuffer = await crypto.subtle.encrypt(
-            { name: "AES-CBC", iv: iv },
-            key,
-            encodedText
-        );
 
-        const combined = new Uint8Array(iv.byteLength + encryptedBuffer.byteLength);
-        combined.set(iv, 0);
-        combined.set(new Uint8Array(encryptedBuffer), iv.byteLength);
+    socket.emit("join", { user_id: currentUserId });
 
-        return Array.from(combined).map(b => b.toString(16).padStart(2, "0")).join("");
-    }
+    socket.on("message", async (data) => {
+        const { username, sender_uuid, message, signature } = data;
 
-    async function sendMessage() {
+        const isValid = await verifySignature(message, signature, sender_uuid);
+
+        const chatBox = document.getElementById("chatBox");
+        const p = document.createElement("p");
+
+        let validityMark = isValid ? "✅" : "❌";
+
+        p.innerHTML = `<strong>${username} ${validityMark} :</strong> ${message}`;
+        chatBox.appendChild(p);
+
+        chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    function sendMessage() {
         let messageInput = document.getElementById("messageInput");
         let message = messageInput.value.trim();
 
         if (message !== "") {
-            let chatBox = document.getElementById("chatBox");
-            chatBox.innerHTML += `<p><strong>${currentUsername}:</strong> ${message}</p>`;
-            chatBox.scrollTop = chatBox.scrollHeight;
-
-            const encryptedMessageHex = await encryptMessage(message, sharedKeyHex);
-
             socket.emit("message", {
-                message: encryptedMessageHex,
-                receiver_id: "{{ receiver.id }}"
+                message: message,
+                receiver_id: receiverId
             });
 
             messageInput.value = "";
@@ -148,10 +140,6 @@
         if (event.key === "Enter") {
             sendMessage();
         }
-    }
-
-    function goBack() {
-        window.history.back();
     }
 </script>
 
